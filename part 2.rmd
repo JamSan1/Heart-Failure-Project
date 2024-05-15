@@ -1,0 +1,112 @@
+---
+title: 'PSTAT126: Part 2 Simple Linear Model'
+author: "Chris Park, Justin McCarthy, James San, Shengnan Liu"
+date: "2023-06-02"
+output: html_document
+---
+
+## Introduction: Recap of Variables
+The data set included 13 variables in which 6 were categorical and 7 were quantitative.In our first Simple Linear Model we chose response variable as EJECTION FRACTION and SERUM SODIUM as the predictor.
+
+The reason we chose ejection fraction as the response variable was due to the fact that this quantitative metric is a great proxy for heart failure. The ejection fraction by definition is how much blood the heart can pump relative to how much blood the heart can hold in the left ventricle.
+Moreover, the reason we chose serum sodium was due to stereotypical dietary fads that claim over-consumption of sodium is the reason for certain health issues.
+
+## Hypotheses Testing
+Our null hypothesis is that beta1 is less than 0 while the alternative hypothesis is that beta1 is greater than 0.
+$$H_0 :\beta_1 < 0 $$
+$$H_A:\beta_1 > 0 $$
+```{r fig.cap = "Simple Linear Model: plot"}
+#Simple Linear Model: Create and Plot
+heart <- read.csv("heart_failure_clinical_records_dataset.csv")
+plot(heart$serum_sodium, heart$ejection_fraction)
+serum_sodium_lm <- lm(heart$ejection_fraction ~ heart$serum_sodium)
+abline(serum_sodium_lm)
+serum_sodium_lm
+```
+$$Y = \beta_1x_1 + \beta_0$$
+$$Y = 0.471x_1 - 26.37$$
+Our linear model shows that 𝛽zero (the intercept) has a value of -26.3753 and𝛽one (the slope) is 0.4718.
+Log and square root transformations were performed on the simple linear model, however, it only brought about a very minimal decrease to the p-value and minimal increase to the R-squared. Therefore we concluded that a transformation was unnecessary.
+
+## Confidence Interval for beta-one: t-test
+We chose a 99% confidence interval test whether beta_one,0.47, was less than 0 (NULL HYPOTHESIS), or greater than 0 (ALTERNATIVE HYPOTHESIS).
+```{r fig.cap = "confidence interval"}
+summary(serum_sodium_lm) # p-value = 0.0027, t-value = 3.097
+# plot of confidence interval
+library('ggplot2')
+library('tidyverse')
+library("faraway")
+library('ggplot2')
+library('tidyverse')
+library("faraway")
+library("modelr")
+#Normal ggplot
+p <- ggplot(heart, aes(x=serum_sodium, y=ejection_fraction)) +
+  geom_point() +
+  labs(x = "Serum Sodium", y= "Ejection Fraction") +
+  geom_smooth(method = 'lm')
+
+#model visualization
+fit_heart <- lm(ejection_fraction ~ serum_sodium, data = heart)
+
+#prediction grid
+heart%>%
+  data_grid(serum_sodium = serum_sodium,
+            .model = fit_heart) %>%
+  head()
+
+#Adding predictions to data set
+heart %>%
+  data_grid(serum_sodium = serum_sodium, .model = fit_heart) %>%
+  add_predictions(model = fit_heart) %>%
+  head()
+
+#storing prediction grid
+pred_df_heart <- heart %>%
+  data_grid(serum_sodium = serum_sodium, .model = fit_heart) %>%
+  add_predictions(model = fit_heart)
+
+#Predict confidence limits
+predict(fit_heart,
+        newdata = pred_df_heart,
+        interval = 'confidence',
+        level = 0.99) %>%
+  head()
+
+#Add Confidence limits
+pred_df_heart_ci <- pred_df_heart %>%
+  cbind(ci = predict(fit_heart,
+                     newdata = pred_df_heart,
+                     interval = 'confidence',
+                     level = 0.99))
+pred_df_heart_ci
+# Compute 99% prediction intervals
+pred_df_heart_pi <- pred_df_heart %>%
+  cbind(pi = predict(fit_heart, newdata = pred_df_heart, interval = 'prediction', level = 0.99))
+# The plot
+p + geom_path(aes(y = pred), data = pred_df_heart, color = 'red') +
+  geom_ribbon(aes(ymin = ci.lwr, ymax = ci.upr, y = ci.fit),
+              data = pred_df_heart_ci,
+              fill = 'red', alpha = 0.3) +
+  geom_ribbon(aes(ymin = pi.lwr, ymax = pi.upr, y = pi.fit),
+              data = pred_df_heart_pi,
+              fill = 'blue', alpha = 0.1)
+```
+The results of our t-test via the summary() function gave us p-values of 0.00227 and a t-value of 3.079 with 297 df.
+Since our p-value,0.0027, fit the 99% confidence interval, we rejected our null hypothesis that beta-one is less than 0. This was very surprising given the fact that conventional wisdom normally warns consumers to reduce their intake of sodium. The graph and subsequent testing showed an extremely small positive correlation to sodium levels and ejection fraction.
+
+## Fit of the Linear Model: R-squared and correlation coefficient
+```{r fig.cap = '2.3 assumptions for linear regression'}
+summary(serum_sodium_lm)$r.squared #R-Squared
+anova_serum_sodium <- aov(ejection_fraction ~ serum_sodium, data = heart)
+plot(anova_serum_sodium, 1) # residual vs fitted
+plot(anova_serum_sodium, 2) # normal Q-Q plot
+```
+By plotting a residual vs fitted and a normal Q-Q plot, we can visually see how the two variables react to one another. Looking at the normal Q-Q plot, we see that the vast majority of our data points lie on or extremely close to the line. This means our data is approximately normal. We can also say that the residuals are normally distributed from this plot. Looking at the residual vs fitted plot, we see that all of the data points appear to be scattered with no apparent pattern and that the data points are randomly distributed around the 0 line. This means that our linear regression model is suitable for a data set and that the data are linear with constant variability. These are both great indicators that our linear model is a suitable fit for our data set.
+
+## Conclusion: Interesting Findings
+The result of our hypothesis testing concluded that there is statistically sufficient evidence that the variables of serum sodium and ejection fraction are somewhat associated.
+
+Although the model resulted in a low R-squared which suggest the linear model is not very strong, the subsequent graphs, residual vs fitted, and normal Q-Q plot, indicated that our data was approximately normal in its distribution via the normal Q-Q plot, and our residuals displayed no apparent pattern and that our data points are randomly distributed. How can there be a low p-value and low R-squared? The results of our Simple Linear model indicated to us that although the slope beta-one is statistically significant in our model, due to the variance in our residuals, the model as a whole shows very little correlation. The values we derived for the R-squared were equal to 0.03 and our adjusted were 0.027.
+
+Interestingly enough, from the perspective of a lay person, the fact that in our model, ejection fraction was positively correlated with the serum sodium proved to us that there is some correlation with larger amounts of sodium corresponding to higher volume ejection fractions. Why would that be the case? Looking through the medical literature we discovered that a symptom of heart failure are imbalances and failure of the body to regulate electrolyte levels. Therefore, it is common for heart failure patients to have dangerously low levels of electrolytes including sodium among a whole host of other electrolytes.

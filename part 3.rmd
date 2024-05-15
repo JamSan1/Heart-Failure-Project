@@ -1,0 +1,140 @@
+---
+title: 'PSTAT126: Part 3 Multiple Linear Model'
+author: "Chris Park, Justin McCarthy, James San, Shengnan Liu"
+date: "2023-06-02"
+output: html_document
+---
+
+## Multiple Linear Regression Model: recap and variable selection
+  In our construction of a multiple linear model, we referred to the heart failure dataset used in previous parts. Many of the variables of interest were biometric measurements found in the patients such as creatinine, sodium, platelet, and other comorbidities. We used the ggpairs() function to get preliminary results to fit certain models.
+
+```{r fig.cap = "DATA"}
+heart <- read.csv("heart_failure_clinical_records_dataset.csv")
+```
+## Pairs Plots:
+```{r, ggpairs plot}
+require("GGally")
+library("GGally")
+ggpairs(heart)
+```
+
+  Based on the pair plots we noticed a strong correlation between serum creatinine and serum sodium allowing us to base our multiple linear model around those two variables.
+  
+## Computational model building: 
+  In order to find the predictor variables that would be the best in our model we conducted some summary tests on linear models with different combinations of response variables. Although most produced statistically insignificant models, the best model we could create was the response variable as serum creatinine with the predictors as creatinine phosphokinase and serum sodium.
+Although serum creatinine and creatinine phosphokinase may not look independent, the fact that their measurements in the biometrics were by a factor of 1000, the levels of creatinine phosphokinase did not play a significant role in the model. Moreover, there were no interaction variables present in our data set and by extension in our model. 
+The transformations we conducted on the variables resulted in a lower p-value and indicated a clear predictor in the model.
+
+For our second model we chose serum creatinine as the response variable and ejection fraction and platelets as the predictors. This provided us with extremely close RMSE values as the initial model however due to the initial model's more desireable p-values and lower RMSE, we chose to do hypothesis testing with the first model.
+
+We decided to log transform the variables due to the fact that quite frankly the linear models being produced were showing very low correlation. Logging both the predictor and response variable created a lower RMSE as well as a lower p-values for our best predictor in the model
+$$ log(serum creatinine) = 17.80-3.55log(serumsodium)-0.02log(creatinine phosphokinase)$$
+
+$$  log(serumcreatinine) = 1.628 -0.165log(ejectionfraction) -0.0673log(platelets)$$
+Cross Validation:
+  To identify which model had a stronger predictive power, we used the K-Fold Cross Validation Method to calculate the average prediction error rate for each model. The tests show that our first model had a higher R-squared and lower RMSE, therefore proving its stronger predictive power over the second model.
+```{r fig.cap = "Cross Validation"}
+require(caret)
+library("caret")
+# Define training control
+set.seed(150)#Allow for reproducibility
+#10-fold cross validation, provides estimates that allows for neither very high bias or very high variance
+train.control <- trainControl(method = "repeatedcv", 
+                              number = 10) 
+# Train the model
+model1 <- train(log(serum_creatinine) ~ log(creatinine_phosphokinase) + log(serum_sodium), data = heart, method = "lm",
+               trControl = train.control)
+model2 <- train(log(serum_creatinine) ~ log(ejection_fraction) + log(platelets),
+                data = heart, method = "lm",
+                trControl = train.control)
+# Summarize the results
+print(model1)#The RMSE is 0.4335347 and R-squared is 0.09868744
+print(model2)#The RMSE is 0.4446104 and R-squared is 0.04526957
+
+```
+
+```{r fig.cap = "Multiple Linear Model"}
+# Best Model we could find
+multi_model <- lm(log(serum_creatinine) ~ log(creatinine_phosphokinase) + log(serum_sodium), data=heart)
+summary(multi_model)
+sqrt(mean(multi_model$residuals^2)) #RMSE value for first model
+#0.4358973 is a low RMSE which means that our linear model is great at making accurate predictions.
+#Second best Model
+multi_model.1 <-lm(log(serum_creatinine) ~ log(ejection_fraction) + log(platelets),
+data = heart)
+summary(multi_model.1)
+sqrt(mean(multi_model.1$residuals^2)) #RMSE value for second
+#0.44825 is a low RMSE which makes it slightly less of a linearly fit model making it slightly less accurate in predictions.
+
+```
+The predictor that produced the most statistically significant p-value was the serum sodium with a p-value of 5.98e-06. Moreover, the multiple linear model produced a p-value of 1.727e-05.
+
+## Statisical Model Test: F-test and R-squared
+For our hypothesis testing we chose to conduct F-tests on our initial model as seem from above. For our null hypothesis we stated that beta-one for our multi-linear model (creatinine phosphokinase) is less than 0 while for our alternative we stated that it is greater than 0.
+Using an alpha value of 0.05 as well as 1, 296 degrees of freedom, we can see that the critical F value is approximately 3.87 from looking at the F distribution table. Since our F-value of 1.5091 is less than 3.87 (the critical F-statistic), we fail to reject the null hypothesis.
+$$ H_0: \beta_1 < 0 $$
+$$ H_a : \beta_1 > 0 $$
+
+Our R-squared value however did indicate to us that our multi-linear model was extremely weak. With a R-squared value of 0.0714 and an adjusted R-squared value of 0.0651, like in our Simple Linear mode, although our predictor variables were statistically significant, the overall strength of the model does not explain the dependent variable.
+```{r r.fig = '3.1 F test'}
+anova_multi_model <- anova(multi_model)
+f_statistic <- anova_multi_model$F[1]
+print(f_statistic)
+print(anova_multi_model)
+summary(multi_model)
+
+#Our null hypothesis for our multi-linear model is that 𝛽1 is < 0 which means that the regression line will have a negative slope. Our alternative hypothesis for our multilinear model is that 𝛽1 is >= 0 which means that our regression line will have a positive slope for our linear model. Looking at the summary output for our initial multilinear model `multi_model`, 𝛽1 =  -0.02576 which is clearly less than 0. We can then conclude that we fail to reject the null hypothesis.
+```
+
+```{r r.fig = 'Global F test for multilinear hypothesis'}
+global_f_1 = var.test(log(heart$serum_creatinine), log(heart$creatinine_phosphokinase))
+print(global_f_1)
+global_f_2 = var.test(log(heart$serum_creatinine), log(heart$serum_sodium))
+print(global_f_2)
+```
+
+## Confidence and Predictive Intervals
+```{r r.fig = 'CI and PI testing'}
+row.number <- sample(1:nrow(heart), 0.8*nrow(heart))
+train_data = heart[row.number,] #train_data has 80% of the heart dataset, 
+test_data = heart[-row.number,] #test_data has 20% of the heart dataset. The output has CI's and PI's based on every observation of test_data
+#print(train_data)
+#print(test_data)
+training_multi_model_data = lm(log(serum_creatinine) ~ log(creatinine_phosphokinase) + log(serum_sodium), data=train_data)
+test_multi_model_data = lm(log(serum_creatinine) ~ log(creatinine_phosphokinase) + log(serum_sodium), data=test_data)
+#summary(training_multi_model_data)
+#summary(test_multi_model_data)
+predict(training_multi_model_data, newdata = test_data, interval = 'confidence') %>% head(8)
+predict(training_multi_model_data, newdata=test_data, interval = 'prediction') %>% head(8)
+```
+In our analysis of confidence intervals and predictive intervals we chose the same value of Creatinine phosphokinase with different corresponding Sodium level
+
+obs 18 and 46 have the SAME creatinine_phos values (582) but DIFFERENT sodium values (127, 135 respectively)
+
+CI for observation 18: (0.274385440, 0.5734236)  fit = 0.42390452
+PI for observation 18: (-0.4615112, 1.3093202)   fit = 0.42390452 
+
+CI for observation 46: (0.166026026, 0.3048440)  fit = 0.23543503
+PI for observation 46: (-0.6400206 1.1108907)    fit = 0.23543503
+
+An interesting finding we observed in this example are that although the values of creatinine phosphokinase were the same, the different sodium values resulted in different fit values. Although there was a slight difference in the sodium levels, these resulted in profoundly different fit values. With slight increases in sodium levels, the fit dramatically differs
+
+obs 8 and 11 have the SAME sodium values (131) but DIFFERENT creatinine_phos values (315, 81 respectively)
+
+CI for observation 8:  (0.238505399, 0.4305395)  fit = 0.33452243
+PI for observation 8:  (-0.5434436, 1.2124884)   fit =  0.33452243 
+
+CI for observation 11: (0.233681434, 0.4632011)  fit = 0.34844125
+PI for observation 11: (-0.5317717, 1.2286542)   fit = 0.34844125
+
+In this analysis we observed identical sodium values and corresponding creatinine values to analyse which variable was more potent on the fit of the model. In this model, the changes in creatinine had nearly no effect on the fit of the values. This indicates to us that sodium levels are more profound in the resulting CI and PI intervals in the linear model.
+
+## Influential Points: Cook's Distance
+Although graphically speaking our three influential points seem to look pretty high, the fact that it remained below 0.3 seemed to indicate that the three influential points did not have a significant affect on the skewing of our model.
+```{r fig.cap= "Influential points"}
+anova_multi <- aov(log(serum_creatinine) ~ log(creatinine_phosphokinase) + log(serum_sodium), data=heart)
+plot(anova_multi, 4) # cooks distance
+```
+## conclusion: interesting findings
+In conclusion, creating a multiple linear model, although it gave a broader picture into the relationships among a swathe of variables, showed low correlation. Although our models were not very linearly correlated, the predictors in our model gave good indications as to the statistical significance of some predictors in our model. Our models did show some influential points that may have skewed our data, however due to the decent number of observations present in our dataset, the 3 influential points found in our model did not seem to create too much of an affect on our model.
+Overall, the variables present in the dataset, and the relationships there in should be taken with a grain of salt. They do not seem to show any strong correlation as a result of the high RMSE so rather than seeing the predictive power of the model, the models themselves should be seen as showing some correlation but not a lot. These models might also be indicating some symptom responses as a result of unknown interaction variables that are not present in our dataset, or perhaps there just is not much of a correlation.

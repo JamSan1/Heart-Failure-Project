@@ -1,0 +1,175 @@
+---
+title: 'PSTAT126: Part 1 Variables of Interest'
+author: "Chris Park, Justin McCarthy, James San, Shengnan Liu"
+date: "2023-05-30"
+output: html_document
+---
+
+## Dataset of Interest: Heart Failure
+The Heart Failure Clinical Record Dataset gathered by Government College University, Faisalabad, Pakistan looked at 13 clinical features (variables) and contained 299 observations of heart failure patients collected in 2015. Within the featured variables, 6 of them are categorical while the other 7 are numeric. Among the categorical were comorbidities such as smoking, anemia, high blood pressure, diabetes, sex, and death. Among the numeric variables were biometrics with regards to certain enzymes, time between visits, and physical outputs.
+The population of the data is limited to hospital records at Allied Hospital in Faisalabad (Punjab, Pakistan) of patients who already have heart failure. One of the limitations might be genetic and environmental factors that play into heart disease or other comorbidities featured in the dataset. Since this dataset is only describing patients in one hospital in one country with one ethnic background.
+
+## Categorical variables
++ Anemia: Decrease of red blood cells or Hemoglobin
++ High Blood Pressure: Does the patient have hypertension 
++ Diabetes: Does the patient have diabetes
++ Sex: man or woman
++ Smoking: If the patient smokes or not
++ Death Event: If the patient deceased during the follow-up period
+
+## Quantitative Variables
++ Age: Age of patients (Years) (Quantitative)
++ Creatinine Phosphokinase (CPK): Level of the CPK enzyme in the blood (mcg/L)
++ Ejection Fraction: percentage of blood leaving the heart at each contraction (percentage)
++ Platelets: platelets in the blood (kilo platelets/mL)
++ Serum Creatinine: Level of serum creatinine in the blood (mg/dL)
++ Serum Sodium: Level of serum sodium in the blood (mEq/L)
++ Time: Follow-up period (Days)
+
+## Distributions of the Quantitative Variables
+```{r fig.cap="variable distributions"}
+# We are having trouble loading the dataset into the Rmd File
+library("skimr") # to get a summary of the dataset and distributions
+heart <- read.csv("heart_failure_clinical_records_dataset.csv")
+skim(heart)
+cpgraph <- hist(heart$creatinine_phosphokinase,xlab ="Creatinine Phosphokinase",breaks = 30,
+                main = "Distribution of Creatinine Phosphokinase")
+ejgraph<- hist(heart$ejection_fraction,xlab ="ejection fraction by percentage",breaks = 20,
+               main = "Distribution of Ejection Fraction")
+Plateletgraph <-hist(heart$platelets,xlab ="platelets",breaks = 50,
+                     main = "Distribution of Platelet")
+scgraph <- hist(heart$serum_creatinine,xlab ="serum creatinine",breaks = 100
+                ,main = "Distribution of Serum Creatinine")
+ssgraph <- hist(heart$serum_sodium,xlab ="serum sodium by mg/dl",breaks=20,main = "Distribution of Serum Sodium")
+agegraph <- hist(heart$age,xlab = "Age", breaks = 50, 
+                 main = "Distribution of Age")
+timegraph <- hist(heart$time,xlab = "Time in between visits", breaks = 50, 
+                  main = "Distribution of Time")
+```
+
+## Analysis of Quantitative distributions: pt 1
++ creatinine phosphokinase: exponential
++ ejection fraction: bell shaped, right skewed 
++ platelet: bell shaped, right skewed
++ serum creatinine: bell curved skewed left less variance 
++ age : bell curved skewed right (perhaps gamma?)
++ time: no discernable distribution
+
+## pt 2
+The distributions of many of the variables seemed to be bell shaped with the odd exceptions of time which seemed to have no shape, and creatinine phosphokinase which seemed to look exponential.
+
+## Histogram of Categorical
+```{r fig.cap = "Categorical Variable Distributions"}
+diabetes <- c("0 = has diabetes", "1 = does not")
+number_of_0_and_1 <- c(174, 125) #174 for 0 and 125 for 1
+Dia <- data.frame(diabetes, number_of_0_and_1)
+Dia
+barplot(height = Dia$number_of_0_and_1,
+        main = "diabetes", 
+        xlab = "diabetes?", 
+        ylab = "number of people", 
+        names.arg = Dia$diabetes,
+        border = "dark blue", 
+        col = "orange")
+percentage.dia <- 174/299
+percentage.dia
+
+
+anaemia <- c("0 = has anaemia", "1 = does not")
+k <- c(170, 129) #170 for 0and 129 for 1
+Ana <- data.frame(anaemia, k)
+Ana
+barplot(height = Ana$k,
+        main = "anaemia", 
+        xlab = "anaemia?", 
+        ylab = "number of people", 
+        names.arg = Ana$anaemia,
+        border = "dark blue", 
+        col = "orange")
+percentage.ana <- 170/299
+percentage.ana
+
+
+high_blood_pressure <- c("0 = has high_blood_pressure", "1 = does not")
+q <- c(194, 105) #194 for 0 and 105 for 1
+hbp <- data.frame(high_blood_pressure, q)
+hbp
+barplot(height = hbp$q,
+        main = "high_blood_pressure", 
+        xlab = "high_blood_pressure?", 
+        ylab = "number of people", 
+        names.arg = hbp$high_blood_pressure,
+        border = "dark blue", 
+        col = "green")
+percentage.HBP <- 194/299
+percentage.HBP
+
+sex <- c("0 = women", "1 = men")
+w <- c(105, 194) #105 for 0 and 194 for 1
+sex_info <- data.frame(sex, w)
+sex_info
+barplot(height = sex_info$w,
+        main = "sex", 
+        xlab = "gender", 
+        ylab = "number of people", 
+        names.arg = sex_info$sex,
+        border = "dark blue", 
+        col = "yellow")
+sex.ratio <- 194/299
+sex.ratio
+
+
+smoking <- c("0 = smoke", "1 = does not")
+r <- c(203, 96) #203 for 0 and 96 for 1 
+smoking_info <- data.frame(smoking, r)
+smoking_info
+barplot(height = smoking_info$r,
+        main = "smoking", 
+        xlab = "smoke?", 
+        ylab = "number of people", 
+        names.arg = smoking_info$smoking,
+        border = "dark blue", 
+        col = "red")
+percentage.smoking <- 203/299
+percentage.smoking
+
+
+death_event <- c("0 = dead", "1 = not dead")
+o <- c(203, 96) #203 for 0 and 96 for 1 
+death_event_info <- data.frame(death_event, o)
+death_event_info
+barplot(height = death_event_info$o,
+        main = "death_event", 
+        xlab = "dead?", 
+        ylab = "number of people", 
+        names.arg = death_event_info$death_event,
+        border = "dark blue", 
+        col = "purple")
+dead.ratio <- 203/299
+dead.ratio
+```
+## Percentage of each categorical variable
++ Anemia:         57%
++ HBP:            65%
++ Diabetes:       58%
++ Sex:            65% men
++ Smoking:        68%
++ Death Event:    68%
+two biggest comorbidities were smoking and high blood pressure
+
+## Preliminary comparisons of National Average vs Dataset Average of Quantitative
++ Creatinine Phosphokinase (CPK): 582 (mcg/L) vs 10-120(mcg/L)
++ Ejection Fraction: 38.1% vs 50%
++ Platelets: 263,358/mcL vs 150,000-450,000/mcL
++ Serum Creatinine: 1.39 mg/L vs 0.7-1.3mg/L
++ Serum Sodium: 137mEq/L vs 135-145mEq/L
+Some variables of interest that may differ from the national average were creatinine, phosphokinase, ejection fraction, serum creatinine, and perhaps sodium.
+
+## Conclusions:
+There are 299 observations with 13 variables, 7 of which are quantitative, mostly bio-metrics, and 6 are categorical, mostly comorbidities.
+The distributions of nearly all of the quantitative variables were bell shaped with the exception of time and creatinine phosphokinase, which were either indistinguishable in shape or exponential. Moreover, comparing the national averages to certain biometric markers showed that there may be some link towards heart failure and the biometrics, creatinine, phosphokinase, ejection fraction, serum creatinine, and perhaps sodium.
+The interesting finds in this part were the comorbidities, besides death, smoking and sex were the most prevalent in the dataset, with 65% of men, and 68% of smokers being the most common in the data.
+
+
+
+

@@ -1,0 +1,109 @@
+---
+title: 'PSTAT126: Part 4 Collinearity'
+author: "Chris Park, Justin McCarthy, James San, Shengnan Liu"
+date: "2023-06-03"
+output: html_document
+---
+
+## Shrinkage Model/collinearity
+Since in our model we got values almost equal to 1, this showed there is almost no collinearity between log(creatinine_phosphokinase) and log(serum_sodium).
+```{r fig.cap = "Colinearity"}
+library('faraway')
+heart <- read.csv("heart_failure_clinical_records_dataset.csv")
+c <- data.frame(log(heart$creatinine_phosphokinase), log(heart$serum_sodium))
+vif(c)
+```
+
+## Lasso and Ridge Regression
+Since the differences are only millesimal or centesimal between the coefficients of MLR and those of Lasso, respectively, the best Lasso lambda is 0.00058 which is extremely close to 0, our Lasso model turns out to be almost identical to MLR model.
+
+Although the differences between the coefficients of MLR and those of RR are slightly larger than that of MLR and Lasso, and the best RR lambda is 0.0754 which is larger than 0.00058, those differences are still very small, so our RR model turns out to be also very similar to MLR model.
+
+Since MSE of both Lasso and RR are small (both between 0.19 and 0.21), our Lasso and RR models predict the dataset fairly accurately as a whole.
+```{r r.fig = 'lasso regression'}
+library('glmnet')
+#define matrix of predictor variables
+mat1.data <- c(log(heart$creatinine_phosphokinase),log(heart$serum_sodium))
+mat1 <- matrix(mat1.data,nrow=299,ncol=2,byrow=FALSE)
+
+#define response variable
+y <- log(heart$serum_creatinine)
+
+library('glmnet')
+
+#fit lasso regression model using k-fold cross-validation
+lasso_cv_model <- cv.glmnet(mat1, y, alpha = 1)
+lasso_cv_model
+
+#find optimal lambda value that minimizes test MSE
+lasso_best_lambda <- lasso_cv_model$lambda.min
+lasso_best_lambda
+
+#produce plot of test MSE by lambda value
+plot(lasso_cv_model) 
+
+#find coefficients of best model
+lasso_best_model <- glmnet(mat1, y, alpha = 1, lambda = lasso_best_lambda)
+coef(lasso_best_model)
+```
+
+```{r r.fig = 'ridge regression'}
+#define matrix of predictor variables
+mat1.data <- c(log(heart$creatinine_phosphokinase),log(heart$serum_sodium))
+mat1 <- matrix(mat1.data,nrow=299,ncol=2,byrow=FALSE)
+
+#define response variable
+y <- log(heart$serum_creatinine)
+
+#fit lasso regression model using k-fold cross-validation
+ridge_cv_model <- cv.glmnet(mat1, y, alpha = 0)
+ridge_cv_model
+
+#find optimal lambda value that minimizes test MSE
+ridge_best_lambda <- ridge_cv_model$lambda.min
+ridge_best_lambda
+
+#produce plot of test MSE by lambda value
+plot(ridge_cv_model) 
+
+#find coefficients of best model
+ridge_best_model <- glmnet(mat1, y, alpha = 0, lambda = ridge_best_lambda)
+coef(ridge_best_model)
+```
+
+## Innovations: Weighted Least Squares
+Since the coefficient of determination in our original multilinear model is very low, we wanted to see if there was a way to increase it. The weighted least squares method is a good way to do this since knowledge of the variance of observations is incorporated into the regression model. The output showed, however, that our coefficient of determination for our weighted least squares model was even lower than our original model. While this wasn't the outcome we expected, it shows that our multilinear model does a good job at estimating the relationship between our response variable and our two predictor variables.
+
+Looking at the summary of our weighted least squares model, we have three valuable pieces of information that we can use for comparison. R^2 = 0.02976, Adjusted R^2 = 0.02321, p-value = 0.01143. Both the R^2 and adjusted R^2 values for this model are lower than the values of our original multi-linear model and the p-value is higher than our original multi-linear model. This is clear evidence that this model is worse than our original multilinear model.
+
+One assumption of OLS is that each data point has equal impact or results in equal information to the underlying process. However, equal impact or results appear to be too ideal to a real-life random dataset. On the other hand, in “Residuals vs Fitted” graph, there are outliers and values that deviate quite evidently from the main group, so our dataset does contain some data points that have different impact and generates different results. Hence, it becomes fair to address this by seeking a Least Square model that accounts for the disparate impact of the data points.
+```{r fig.cap = "Weighted Least Squares"}
+wls_multiple_model <- lm(log(serum_creatinine) ~ log(creatinine_phosphokinase) + log(serum_sodium), data=heart)
+plot(fitted(wls_multiple_model), resid(wls_multiple_model), xlab='Fitted Values', ylab='Residuals')
+abline(0,0)
+#We will use a Breusch-Pagan test to test for heteroscedasticity. This will show whether or not the residuals are distributed with equal variance at every level of the predictor variables.
+```
+Next, lets create our hypothesis:
+Our null hypothesis is that the residuals are distributed with equal variances at every level of the predictor variables.
+Our alternative hypothesis is that the residuals are not distributed with equal variances at every level of the predictor variables.
+```{r fig.cap="BPtest"}
+require(lmtest)
+library('lmtest')
+bptest(wls_multiple_model)
+```
+After using the bptest function on your multi-linear model, we can see that our p-value is 0.8114. Since 0.8114 is significantly higher than 0.05, we fail to reject the null hypothesis which means the residuals are distributed with equal variances at every level of the predictor variables.
+```{r fig.cap = "SUMMARY"}
+weight <- 1 / (lm(abs(wls_multiple_model$residuals) ~ wls_multiple_model$fitted.values)$fitted.values^2)
+
+weight_model <- lm(log(serum_creatinine) ~ log(creatinine_phosphokinase) + log(serum_sodium), data=heart, weights=weight)
+summary(weight_model) 
+#Original multilinear model: R^2 = 0.07142, Adj R^2 = 0.06514, p-value = 1.727e-05
+#Weighted multilinear model: R^2 = 0.02976, Adj. R^2 = 0.02321, p-value = 0.01143
+#So the weighted multilinear model has a lower R^2 and Ajd. R^2 values and a higher p-value compared to our original multilinear model. Therefore the weighted multilinear model is worse than our original multilinear mode
+```
+The weighted least squares method is often used when heteroskedasticity (non-constant error variance) is present in an analysis. After examining a residual vs fitted plot of our multilinear model, we saw that there wasn't any clear pattern and that the line was very close to 0. However, the data points weren't too congested together which made us think that error variance may not be constant. We were able to test this question by using weighted least squares method and the output confirmed that our model does indeed have a constant variance because of its very high p-value. Since our null hypothesis is that the residuals are distributed with equal variances at every level of the predictor variables, the p-value alone let us know that we fail to reject the null hypothesis which means that it's fair to assume we have a constant variance. This also let us know that our model violated had a condition that was violated because weighted least squares method is strictly for models with non-constant error variance.
+
+## Conclusion
+In conclusion, conducting RR and LR resulted in both extremely small lambda values with RR producing 0.0754 and lasso producing 0.00058. Although the values between the two differ quite substantially, on an absolute level, they both close to 0 indicating that both models predict the dataset fairly accurately as a whole.
+
+For our innovation, we got the weighted least squares and analyzed two different observations. We then conducted a hypothesis test to determine whether or not the residuals were distributed with equal variance we concluded that they in fact were distributed with equal variance. Even with the prerequisite analysis, we concluded that the weighted model was less accurate than our original model due to the R-squared and p-values.
